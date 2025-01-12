@@ -193,7 +193,7 @@
 
 		checkBtn.addEventListener('click',checkResult);
 
-		async function checkResult(){
+		function checkResult(){
 			if (!gridData) return;
 			let correct=true;
 			const n=gridData.n;
@@ -241,9 +241,10 @@
 			const m=gridData.m;
 			const grid=gridContainer.children;
 			const startColor=grid[row*m+col].classList.contains('black');
-			let size=0, plus_sign=0, minus_sign=0;
+			let plus_sign=0, minus_sign=0;
 			const queue=[[row,col,startColor]];
 			const visited=new Set();
+			visited.add(`${row},${col}`);
 
 			while (queue.length>0){
 				const [r,c,color]=queue.shift();
@@ -304,7 +305,7 @@
 					}
 				}
 			}
-			// console.log([row,col,size,visited.size]);
+			// console.log([row,col,visited.size,plus_sign,minus_sign]);
 			return [visited.size,plus_sign,minus_sign];
 		}
 		

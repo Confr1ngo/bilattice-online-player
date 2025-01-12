@@ -175,6 +175,7 @@
 			let size=0, plus_sign=0, minus_sign=0;
 			const queue=[[row,col,startColor]];
 			const visited=new Set();
+			visited.add(`${row},${col}`);
 
 			while (queue.length>0){
 				const [r,c,color]=queue.shift();

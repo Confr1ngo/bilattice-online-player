@@ -126,13 +126,23 @@
 		confirmBtn.addEventListener('click',()=>{
 			try{
 				gridData=JSON.parse(jsonInput.value);
-				createGrid(gridData.n,gridData.m,gridData.map);
+				const n=gridData.n;
+				const m=gridData.m;
+				const map=gridData.map;
+				for (let i=0;i<n;i++){
+					for (let j=0;j<m;j++){
+						if (!/[+-123456789.wasdWASD]/.test(map[i][j])){
+							throw new Error();
+						}
+					}
+				}
+				createGrid(n,m,map);
 				inputArea.style.display='none';
 				checkBtn.style.display='block';
 				clearBtn.style.display='block';
 				resetBtn.style.display='block';
 			} catch (error){
-				alert("JSON 格式错误！");
+				alert("数据无效！");
 			}
 		});
 

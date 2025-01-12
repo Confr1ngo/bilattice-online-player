@@ -135,10 +135,24 @@
 				for (let j=0;j<m;j++){
 					if (/[0-9]/.test(map[i][j])){
 						const expectedSize=parseInt(map[i][j]);
-						const actualSize=bfs(i,j);
+						const actualSize=bfs(i,j)[0];
 						if (expectedSize!==actualSize){
 							correct=false;
 							break;
+						}
+					}
+					else if (/[+-]/.test(map[i][j])){
+						if (map[i][j]==='+'){
+							if (bfs(i,j)[2]!==1){
+								correct=false;
+								break;
+							}
+						}
+						else if (map[i][j]==='-'){
+							if (bfs(i,j)[1]!==1){
+								correct=false;
+								break;
+							}
 						}
 					}
 				}
@@ -146,11 +160,11 @@
 			}
 
 			resultDiv.style.display='block';
-			resultDiv.textContent=correct? "正确！":"错误！";
+			resultDiv.textContent=correct? "答案正确":"答案错误";
 		}
 
 		function in_range(row,col){
-			return row >= 0 && row<gridData.n && col >= 0 && col<gridData.m;
+			return row>=0 && row<gridData.n && col>=0 && col<gridData.m;
 		}
 
 		function bfs(row,col){
@@ -158,18 +172,19 @@
 			const m=gridData.m;
 			const grid=gridContainer.children;
 			const startColor=grid[row*m+col].classList.contains('black');
-			let size=0;
-			const queue=[[row,col,startColor]]; // Store color with position
+			let size=0, plus_sign=0, minus_sign=0;
+			const queue=[[row,col,startColor]];
 			const visited=new Set();
 
 			while (queue.length>0){
 				const [r,c,color]=queue.shift();
+				if (gridData.map[r][c]==='+') plus_sign++;
+				if (gridData.map[r][c]==='-') minus_sign++;
 				// if (!in_range(r,c) || visited.has(`${r},${c}`)) continue;
 
 				const cell=grid[r*m+c];
 				const cellContent=gridData.map[r][c];
 
-				visited.add(`${r},${c}`);
 				if (/[wasdWASD]/.test(cellContent)){
 					let mult=1;
 					if (cellContent.charCodeAt(0)>=65 && cellContent.charCodeAt(0)<=90){
@@ -179,33 +194,49 @@
 					if (/[wW]/.test(cellContent)){
 						if (in_range(r-mult,c) && !visited.has(`${r-mult},${c}`)){
 							queue.push([r-mult,c,grid[(r-mult)*m+c].classList.contains('black')]);
+							visited.add(`${r-mult},${c}`);
 						}
 					}
 					else if (/[aA]/.test(cellContent)){
 						if (in_range(r,c-mult) && !visited.has(`${r},${c-mult}`)){
 							queue.push([r,c-mult,grid[r*m+(c-mult)].classList.contains('black')]);
+							visited.add(`${r},${c-mult}`);
 						}
 					}
 					else if (/[sS]/.test(cellContent)){
 						if (in_range(r+mult,c) && !visited.has(`${r+mult},${c}`)){
 							queue.push([r+mult,c,grid[(r+mult)*m+c].classList.contains('black')]);
+							visited.add(`${r+mult},${c}`);
 						}
 					}
 					else if (/[dD]/.test(cellContent)){
 						if (in_range(r,c+mult) && !visited.has(`${r},${c+mult}`)){
 							queue.push([r,c+mult,grid[r*m+(c+mult)].classList.contains('black')]);
+							visited.add(`${r},${c+mult}`);
 						}
 					}
 				}
 				else{
-					if (in_range(r+1,c) && !visited.has(`${r+1},${c}`) && grid[(r+1)*m+c].classList.contains('black')==color) queue.push([r+1,c,color]);
-					if (in_range(r-1,c) && !visited.has(`${r-1},${c}`) && grid[(r-1)*m+c].classList.contains('black')==color) queue.push([r-1,c,color]);
-					if (in_range(r,c+1) && !visited.has(`${r},${c+1}`) && grid[r*m+(c+1)].classList.contains('black')==color) queue.push([r,c+1,color]);
-					if (in_range(r,c-1) && !visited.has(`${r},${c-1}`) && grid[r*m+(c-1)].classList.contains('black')==color) queue.push([r,c-1,color]);
+					if (in_range(r+1,c) && !visited.has(`${r+1},${c}`) && grid[(r+1)*m+c].classList.contains('black')==color){
+						queue.push([r+1,c,color]);
+						visited.add(`${r+1},${c}`);
+					}
+					if (in_range(r-1,c) && !visited.has(`${r-1},${c}`) && grid[(r-1)*m+c].classList.contains('black')==color){
+						queue.push([r-1,c,color]);
+						visited.add(`${r-1},${c}`);
+					}
+					if (in_range(r,c+1) && !visited.has(`${r},${c+1}`) && grid[r*m+(c+1)].classList.contains('black')==color){
+						queue.push([r,c+1,color]);
+						visited.add(`${r},${c+1}`);
+					}
+					if (in_range(r,c-1) && !visited.has(`${r},${c-1}`) && grid[r*m+(c-1)].classList.contains('black')==color){
+						queue.push([r,c-1,color]);
+						visited.add(`${r},${c-1}`);
+					}
 				}
 			}
 			// console.log([row,col,size,visited.size]);
-			return visited.size;
+			return [visited.size,plus_sign,minus_sign];
 		}
 		
 		clearBtn.addEventListener('click', () => {

@@ -129,7 +129,9 @@
 				const n=gridData.n;
 				const m=gridData.m;
 				const map=gridData.map;
+				if (map.length!==n) throw new Error();
 				for (let i=0;i<n;i++){
+					if (map[i].length!==m) throw new Error();
 					for (let j=0;j<m;j++){
 						if (!/[+-123456789.wasdWASD]/.test(map[i][j])){
 							throw new Error();

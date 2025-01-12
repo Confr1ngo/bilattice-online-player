@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1.0">
+	<title>Bilattice Online Player</title>
+	<style>
+		body{
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+			margin: 0;
+			font-family: sans-serif;
+		}
+		#grid-container{
+			display: grid;
+			border-collapse: collapse;
+		}
+		.grid-cell{
+			width: 40px;
+			height: 40px;
+			text-align: center;
+			line-height: 40px;
+			border: 1px solid black;
+			cursor: pointer;
+			user-select: none;
+		}
+		.black{
+			background-color: black;
+			color: white;
+		}
+		#buttons {
+			display: flex;
+			gap: 10px; /* Add some space between buttons */
+		}
+	</style>
+</head>
+<body>
+
+	<button id="import-btn">导入</button>
+	<div id="input-area" style="display:none;">
+		<textarea id="json-input"></textarea><br>
+		<button id="confirm-btn">确认</button>
+	</div>
+	<div id="grid-container"></div>
+	<div id="buttons">
+		<button id="check-btn" style="display:none;">检查</button>
+		<button id="clear-btn" style="display:none;">清空</button>
+		<button id="reset-btn" style="display:none;">重置</button>
+	</div>
+	<div id="result" style="display:none;"></div>
+
+	<script>
+		// SHA1 Implementation
+		function encodeUTF8(s) {
+			var i, r = [], c, x;
+			for (i = 0; i < s.length; i++){
+				if ((c = s.charCodeAt(i)) < 0x80) r.push(c);
+				else if (c < 0x800) r.push(0xC0 + (c >> 6 & 0x1F), 0x80 + (c & 0x3F));
+				else {
+					if ((x = c ^ 0xD800) >> 10 == 0)
+						c = (x << 10) + (s.charCodeAt(++i) ^ 0xDC00) + 0x10000,
+						r.push(0xF0 + (c >> 18 & 0x7), 0x80 + (c >> 12 & 0x3F));
+					else r.push(0xE0 + (c >> 12 & 0xF));
+					r.push(0x80 + (c >> 6 & 0x3F), 0x80 + (c & 0x3F));
+				};
+			}
+			return r;
+		}
+
+		function sha1(s) {
+			var data = new Uint8Array(encodeUTF8(s))
+			var i, j, t;
+			var l = ((data.length + 8) >>> 6 << 4) + 16, s = new Uint8Array(l << 2);
+			s.set(new Uint8Array(data.buffer)), s = new Uint32Array(s.buffer);
+			for (t = new DataView(s.buffer), i = 0; i < l; i++)s[i] = t.getUint32(i << 2);
+			s[data.length >> 2] |= 0x80 << (24 - (data.length & 3) * 8);
+			s[l - 1] = data.length << 3;
+			var w = [], f = [
+				function () { return m[1] & m[2] | ~m[1] & m[3]; },
+				function () { return m[1] ^ m[2] ^ m[3]; },
+				function () { return m[1] & m[2] | m[1] & m[3] | m[2] & m[3]; },
+				function () { return m[1] ^ m[2] ^ m[3]; }
+			], rol = function (n, c) { return n << c | n >>> (32 - c); },
+				k = [1518500249, 1859775393, -1894007588, -899497514],
+				m = [1732584193, -271733879, null, null, -1009589776];
+			m[2] = ~m[0], m[3] = ~m[1];
+			for (i = 0; i < s.length; i += 16) {
+				var o = m.slice(0);
+				for (j = 0; j < 80; j++)
+				w[j] = j < 16 ? s[i + j] : rol(w[j - 3] ^ w[j - 8] ^ w[j - 14] ^ w[j - 16], 1),
+					t = rol(m[0], 5) + f[j / 20 | 0]() + m[4] + w[j] + k[j / 20 | 0] | 0,
+					m[1] = rol(m[1], 30), m.pop(), m.unshift(t);
+				for (j = 0; j < 5; j++)m[j] = m[j] + o[j] | 0;
+			};
+			t = new DataView(new Uint32Array(m).buffer);
+			for (var i = 0; i < 5; i++)m[i] = t.getUint32(i << 2);
+
+			var hex = Array.prototype.map.call(new Uint8Array(new Uint32Array(m).buffer), function (e) {
+				return (e < 16 ? "0" : "") + e.toString(16);
+			}).join("");
+			return hex;
+		}
+		
+	</script>
+
+	<script>
+		const importBtn=document.getElementById('import-btn');
+		const inputArea=document.getElementById('input-area');
+		const jsonInput=document.getElementById('json-input');
+		const confirmBtn=document.getElementById('confirm-btn');
+		const gridContainer=document.getElementById('grid-container');
+		const checkBtn=document.getElementById('check-btn');
+		const clearBtn = document.getElementById('clear-btn');
+		const resetBtn=document.getElementById('reset-btn');
+		const resultDiv=document.getElementById('result');
+		let gridData=null;
+
+		importBtn.addEventListener('click',()=>{
+			inputArea.style.display='block';
+			importBtn.style.display='none';
+		});
+
+		confirmBtn.addEventListener('click',()=>{
+			try{
+				gridData=JSON.parse(jsonInput.value);
+				createGrid(gridData.n,gridData.m,gridData.map);
+				inputArea.style.display='none';
+				checkBtn.style.display='block';
+				clearBtn.style.display='block';
+				resetBtn.style.display='block';
+			} catch (error){
+				alert("JSON 格式错误！");
+			}
+		});
+
+		resetBtn.addEventListener('click',()=>{
+			gridContainer.innerHTML='';
+			resultDiv.style.display='none';
+			checkBtn.style.display='none';
+			resetBtn.style.display='none';
+			clearBtn.style.display='none';
+			importBtn.style.display='block';
+			gridData=null;
+		});
+
+		function generate_token(){
+			const grid=gridContainer.children;
+			const map=gridData.map;
+			const n=gridData.n;
+			const m=gridData.m;
+			const reverse=!grid[0].classList.contains('black');
+			let token='BILATTICE_TOKEN_GENERATOR_';
+			for (let i=0;i<n;i++) token+=map[i];
+			for (let i=0;i<n;i++){
+				for (let j=0;j<m;j++){
+					token+=grid[i*m+j].classList.contains('black')^reverse? '1':'0';
+				}
+			}
+			return sha1(token).substr(0,16);
+		}
+
+		function createGrid(n,m,map){
+			gridContainer.style.gridTemplateColumns=`repeat(${m},1fr)`;
+			gridContainer.innerHTML='';
+			for (let i=0;i<n;i++){
+				for (let j=0;j<m;j++){
+					const cell=document.createElement('div');
+					cell.classList.add('grid-cell');
+					cell.dataset.row=i;
+					cell.dataset.col=j;
+					const cellContent=map[i][j];
+					if (cellContent==='w') cell.innerHTML='&#8593;';
+					else if (cellContent==='a') cell.innerHTML='&#8592;';
+					else if (cellContent==='s') cell.innerHTML='&#8595;';
+					else if (cellContent==='d') cell.innerHTML='&#8594;';
+					else if (cellContent==='W') cell.innerHTML='&#x21D1;';
+					else if (cellContent==='A') cell.innerHTML='&#x21D0;';
+					else if (cellContent==='S') cell.innerHTML='&#x21D3;';
+					else if (cellContent==='D') cell.innerHTML='&#x21D2;';
+					else if (cellContent!=='.') cell.textContent=cellContent;
+					cell.addEventListener('click',toggleCellColor);
+					gridContainer.appendChild(cell);
+				}
+			}
+		}
+
+		function toggleCellColor(event){
+			event.target.classList.toggle('black');
+		}
+
+		checkBtn.addEventListener('click',checkResult);
+
+		async function checkResult(){
+			if (!gridData) return;
+			let correct=true;
+			const n=gridData.n;
+			const m=gridData.m;
+			const map=gridData.map;
+
+			for (let i=0;i<n;i++){
+				for (let j=0;j<m;j++){
+					if (/[0-9]/.test(map[i][j])){
+						const expectedSize=parseInt(map[i][j]);
+						const actualSize=bfs(i,j)[0];
+						if (expectedSize!==actualSize){
+							correct=false;
+							break;
+						}
+					}
+					else if (/[+-]/.test(map[i][j])){
+						if (map[i][j]==='+'){
+							if (bfs(i,j)[2]!==1){
+								correct=false;
+								break;
+							}
+						}
+						else if (map[i][j]==='-'){
+							if (bfs(i,j)[1]!==1){
+								correct=false;
+								break;
+							}
+						}
+					}
+				}
+				if (!correct) break;
+			}
+
+			resultDiv.style.display='block';
+			resultDiv.textContent=correct? `答案正确！\n你的 token 是 ${generate_token()}。`:"答案错误。";
+		}
+
+		function in_range(row,col){
+			return row>=0 && row<gridData.n && col>=0 && col<gridData.m;
+		}
+
+		function bfs(row,col){
+			const n=gridData.n;
+			const m=gridData.m;
+			const grid=gridContainer.children;
+			const startColor=grid[row*m+col].classList.contains('black');
+			let size=0, plus_sign=0, minus_sign=0;
+			const queue=[[row,col,startColor]];
+			const visited=new Set();
+
+			while (queue.length>0){
+				const [r,c,color]=queue.shift();
+				if (gridData.map[r][c]==='+') plus_sign++;
+				if (gridData.map[r][c]==='-') minus_sign++;
+				// if (!in_range(r,c) || visited.has(`${r},${c}`)) continue;
+
+				const cell=grid[r*m+c];
+				const cellContent=gridData.map[r][c];
+
+				if (/[wasdWASD]/.test(cellContent)){
+					let mult=1;
+					if (cellContent.charCodeAt(0)>=65 && cellContent.charCodeAt(0)<=90){
+						mult=2;
+					}
+
+					if (/[wW]/.test(cellContent)){
+						if (in_range(r-mult,c) && !visited.has(`${r-mult},${c}`)){
+							queue.push([r-mult,c,grid[(r-mult)*m+c].classList.contains('black')]);
+							visited.add(`${r-mult},${c}`);
+						}
+					}
+					else if (/[aA]/.test(cellContent)){
+						if (in_range(r,c-mult) && !visited.has(`${r},${c-mult}`)){
+							queue.push([r,c-mult,grid[r*m+(c-mult)].classList.contains('black')]);
+							visited.add(`${r},${c-mult}`);
+						}
+					}
+					else if (/[sS]/.test(cellContent)){
+						if (in_range(r+mult,c) && !visited.has(`${r+mult},${c}`)){
+							queue.push([r+mult,c,grid[(r+mult)*m+c].classList.contains('black')]);
+							visited.add(`${r+mult},${c}`);
+						}
+					}
+					else if (/[dD]/.test(cellContent)){
+						if (in_range(r,c+mult) && !visited.has(`${r},${c+mult}`)){
+							queue.push([r,c+mult,grid[r*m+(c+mult)].classList.contains('black')]);
+							visited.add(`${r},${c+mult}`);
+						}
+					}
+				}
+				else{
+					if (in_range(r+1,c) && !visited.has(`${r+1},${c}`) && grid[(r+1)*m+c].classList.contains('black')==color){
+						queue.push([r+1,c,color]);
+						visited.add(`${r+1},${c}`);
+					}
+					if (in_range(r-1,c) && !visited.has(`${r-1},${c}`) && grid[(r-1)*m+c].classList.contains('black')==color){
+						queue.push([r-1,c,color]);
+						visited.add(`${r-1},${c}`);
+					}
+					if (in_range(r,c+1) && !visited.has(`${r},${c+1}`) && grid[r*m+(c+1)].classList.contains('black')==color){
+						queue.push([r,c+1,color]);
+						visited.add(`${r},${c+1}`);
+					}
+					if (in_range(r,c-1) && !visited.has(`${r},${c-1}`) && grid[r*m+(c-1)].classList.contains('black')==color){
+						queue.push([r,c-1,color]);
+						visited.add(`${r},${c-1}`);
+					}
+				}
+			}
+			// console.log([row,col,size,visited.size]);
+			return [visited.size,plus_sign,minus_sign];
+		}
+		
+		clearBtn.addEventListener('click', () => {
+			const gridCells=document.querySelectorAll('.grid-cell');
+			gridCells.forEach(cell=>{
+				if (cell.classList.contains('black')) {
+					cell.classList.remove('black');
+				}
+			});
+		});
+
+	</script>
+
+</body>
+</html>

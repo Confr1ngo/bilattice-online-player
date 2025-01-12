@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1.0">
+	<title>Bilattice Online Player</title>
+	<style>
+		body{
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+			margin: 0;
+			font-family: sans-serif;
+		}
+		#grid-container{
+			display: grid;
+			border-collapse: collapse;
+		}
+		.grid-cell{
+			width: 40px;
+			height: 40px;
+			text-align: center;
+			line-height: 40px;
+			border: 1px solid black;
+			cursor: pointer;
+			user-select: none;
+		}
+		.black{
+			background-color: black;
+			color: white;
+		}
+		#buttons {
+			display: flex;
+			gap: 10px; /* Add some space between buttons */
+		}
+	</style>
+</head>
+<body>
+
+	<button id="import-btn">导入</button>
+	<div id="input-area" style="display:none;">
+		<textarea id="json-input"></textarea><br>
+		<button id="confirm-btn">确认</button>
+	</div>
+	<div id="grid-container"></div>
+	<div id="buttons">
+		<button id="check-btn" style="display:none;">检查</button>
+		<button id="clear-btn" style="display:none;">清空</button>
+		<button id="reset-btn" style="display:none;">重置</button>
+	</div>
+	<div id="result" style="display:none;"></div>
+
+
+	<script>
+		const importBtn=document.getElementById('import-btn');
+		const inputArea=document.getElementById('input-area');
+		const jsonInput=document.getElementById('json-input');
+		const confirmBtn=document.getElementById('confirm-btn');
+		const gridContainer=document.getElementById('grid-container');
+		const checkBtn=document.getElementById('check-btn');
+		const clearBtn = document.getElementById('clear-btn');
+		const resetBtn=document.getElementById('reset-btn');
+		const resultDiv=document.getElementById('result');
+		let gridData=null;
+
+		importBtn.addEventListener('click',()=>{
+			inputArea.style.display='block';
+			importBtn.style.display='none';
+		});
+
+		confirmBtn.addEventListener('click',()=>{
+			try{
+				gridData=JSON.parse(jsonInput.value);
+				createGrid(gridData.n,gridData.m,gridData.map);
+				inputArea.style.display='none';
+				checkBtn.style.display='block';
+				clearBtn.style.display='block';
+				resetBtn.style.display='block';
+			} catch (error){
+				alert("JSON 格式错误！");
+			}
+		});
+
+		resetBtn.addEventListener('click',()=>{
+			gridContainer.innerHTML='';
+			resultDiv.style.display='none';
+			checkBtn.style.display='none';
+			resetBtn.style.display='none';
+			clearBtn.style.display='none';
+			importBtn.style.display='block';
+			gridData=null;
+		});
+
+		function createGrid(n,m,map){
+			gridContainer.style.gridTemplateColumns=`repeat(${m},1fr)`;
+			gridContainer.innerHTML='';
+			for (let i=0;i<n;i++){
+				for (let j=0;j<m;j++){
+					const cell=document.createElement('div');
+					cell.classList.add('grid-cell');
+					cell.dataset.row=i;
+					cell.dataset.col=j;
+					const cellContent=map[i][j];
+					if (cellContent==='w') cell.innerHTML='&#8593;';
+					else if (cellContent==='a') cell.innerHTML='&#8592;';
+					else if (cellContent==='s') cell.innerHTML='&#8595;';
+					else if (cellContent==='d') cell.innerHTML='&#8594;';
+					else if (cellContent==='W') cell.innerHTML='&#x21D1;';
+					else if (cellContent==='A') cell.innerHTML='&#x21D0;';
+					else if (cellContent==='S') cell.innerHTML='&#x21D3;';
+					else if (cellContent==='D') cell.innerHTML='&#x21D2;';
+					else if (cellContent!=='.') cell.textContent=cellContent;
+					cell.addEventListener('click',toggleCellColor);
+					gridContainer.appendChild(cell);
+				}
+			}
+		}
+
+		function toggleCellColor(event){
+			event.target.classList.toggle('black');
+		}
+
+		checkBtn.addEventListener('click',checkResult);
+
+		function checkResult(){
+			if (!gridData) return;
+			let correct=true;
+			const n=gridData.n;
+			const m=gridData.m;
+			const map=gridData.map;
+
+			for (let i=0;i<n;i++){
+				for (let j=0;j<m;j++){
+					if (/[0-9]/.test(map[i][j])){
+						const expectedSize=parseInt(map[i][j]);
+						const actualSize=bfs(i,j);
+						if (expectedSize!==actualSize){
+							correct=false;
+							break;
+						}
+					}
+				}
+				if (!correct) break;
+			}
+
+			resultDiv.style.display='block';
+			resultDiv.textContent=correct? "正确！":"错误！";
+		}
+
+		function in_range(row,col){
+			return row >= 0 && row<gridData.n && col >= 0 && col<gridData.m;
+		}
+
+		function bfs(row,col){
+			const n=gridData.n;
+			const m=gridData.m;
+			const grid=gridContainer.children;
+			const startColor=grid[row*m+col].classList.contains('black');
+			let size=0;
+			const queue=[[row,col,startColor]]; // Store color with position
+			const visited=new Set();
+
+			while (queue.length>0){
+				const [r,c,color]=queue.shift();
+				// if (!in_range(r,c) || visited.has(`${r},${c}`)) continue;
+
+				const cell=grid[r*m+c];
+				const cellContent=gridData.map[r][c];
+
+				visited.add(`${r},${c}`);
+				if (/[wasdWASD]/.test(cellContent)){
+					let mult=1;
+					if (cellContent.charCodeAt(0)>=65 && cellContent.charCodeAt(0)<=90){
+						mult=2;
+					}
+
+					if (/[wW]/.test(cellContent)){
+						if (in_range(r-mult,c) && !visited.has(`${r-mult},${c}`)){
+							queue.push([r-mult,c,grid[(r-mult)*m+c].classList.contains('black')]);
+						}
+					}
+					else if (/[aA]/.test(cellContent)){
+						if (in_range(r,c-mult) && !visited.has(`${r},${c-mult}`)){
+							queue.push([r,c-mult,grid[r*m+(c-mult)].classList.contains('black')]);
+						}
+					}
+					else if (/[sS]/.test(cellContent)){
+						if (in_range(r+mult,c) && !visited.has(`${r+mult},${c}`)){
+							queue.push([r+mult,c,grid[(r+mult)*m+c].classList.contains('black')]);
+						}
+					}
+					else if (/[dD]/.test(cellContent)){
+						if (in_range(r,c+mult) && !visited.has(`${r},${c+mult}`)){
+							queue.push([r,c+mult,grid[r*m+(c+mult)].classList.contains('black')]);
+						}
+					}
+				}
+				else{
+					if (in_range(r+1,c) && !visited.has(`${r+1},${c}`) && grid[(r+1)*m+c].classList.contains('black')==color) queue.push([r+1,c,color]);
+					if (in_range(r-1,c) && !visited.has(`${r-1},${c}`) && grid[(r-1)*m+c].classList.contains('black')==color) queue.push([r-1,c,color]);
+					if (in_range(r,c+1) && !visited.has(`${r},${c+1}`) && grid[r*m+(c+1)].classList.contains('black')==color) queue.push([r,c+1,color]);
+					if (in_range(r,c-1) && !visited.has(`${r},${c-1}`) && grid[r*m+(c-1)].classList.contains('black')==color) queue.push([r,c-1,color]);
+				}
+			}
+			// console.log([row,col,size,visited.size]);
+			return visited.size;
+		}
+		
+		clearBtn.addEventListener('click', () => {
+			const gridCells=document.querySelectorAll('.grid-cell');
+			gridCells.forEach(cell=>{
+				if (cell.classList.contains('black')) {
+					cell.classList.remove('black');
+				}
+			});
+		});
+
+	</script>
+
+</body>
+</html>

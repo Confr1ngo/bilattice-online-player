@@ -266,7 +266,7 @@
 					}
 				}
 			}
-			if (not_found.has(`${minx},${miny}`) && not_found.has(`${maxx},${maxy}`) && not_found.has(`${minx},${maxy}`) && not_found.has(`${maxx},${miny}`)){
+			if (visited.has(`${minx},${miny}`) && visited.has(`${maxx},${maxy}`) && visited.has(`${minx},${maxy}`) && visited.has(`${maxx},${miny}`)){
 				return false;
 			}
 			return check_square(row,col,not_found);

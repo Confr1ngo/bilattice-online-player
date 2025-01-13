@@ -31,9 +31,13 @@
 			background-color: black;
 			color: white;
 		}
+		.fixed-cell {
+			background-color: #c0c0c0;
+			cursor: default;
+		}
 		#buttons {
 			display: flex;
-			gap: 10px; /* Add some space between buttons */
+			gap: 10px;
 		}
 	</style>
 </head>
@@ -52,7 +56,6 @@
 	</div>
 	<div id="result" style="display:none;"></div>
 
-
 	<script>
 		const importBtn=document.getElementById('import-btn');
 		const inputArea=document.getElementById('input-area');
@@ -60,7 +63,7 @@
 		const confirmBtn=document.getElementById('confirm-btn');
 		const gridContainer=document.getElementById('grid-container');
 		const checkBtn=document.getElementById('check-btn');
-		const clearBtn = document.getElementById('clear-btn');
+		const clearBtn=document.getElementById('clear-btn');
 		const resetBtn=document.getElementById('reset-btn');
 		const resultDiv=document.getElementById('result');
 		let gridData=null;
@@ -76,11 +79,14 @@
 				const n=gridData.n;
 				const m=gridData.m;
 				const map=gridData.map;
+				if (gridData.watcher!==undefined){
+					if (gridData.watcher.length!==n+m) throw new Error();
+				}
 				if (map.length!==n) throw new Error();
 				for (let i=0;i<n;i++){
 					if (map[i].length!==m) throw new Error();
 					for (let j=0;j<m;j++){
-						if (!/[+-123456789.wasdWASD]/.test(map[i][j])){
+						if (!/[+-123456789.wasdqezcWASDQEZCBo*]/.test(map[i][j])){
 							throw new Error();
 						}
 					}
@@ -106,32 +112,59 @@
 		});
 
 		function createGrid(n,m,map){
-			gridContainer.style.gridTemplateColumns=`repeat(${m},1fr)`;
+			gridContainer.style.gridTemplateColumns=`repeat(${gridData.watcher===undefined? m:m+1},1fr)`;
 			gridContainer.innerHTML='';
+			if (gridData.watcher!==undefined){
+				for (let i=0;i<=m;i++){
+					const cell=document.createElement('div');
+					cell.classList.add('grid-cell','fixed-cell');
+					if (i>0) cell.textContent=gridData.watcher[i-1]<0? '?':gridData.watcher[i-1].toString();
+					gridContainer.appendChild(cell);
+				}
+			}
 			for (let i=0;i<n;i++){
+				if (gridData.watcher!==undefined){
+					const fixedCell=document.createElement('div');
+					fixedCell.classList.add('grid-cell','fixed-cell');
+					fixedCell.textContent=gridData.watcher[m+i]<0? '?':gridData.watcher[m+i].toString();
+					gridContainer.appendChild(fixedCell);
+				}
 				for (let j=0;j<m;j++){
 					const cell=document.createElement('div');
 					cell.classList.add('grid-cell');
 					cell.dataset.row=i;
 					cell.dataset.col=j;
 					const cellContent=map[i][j];
-					if (cellContent==='w') cell.innerHTML='&#8593;';
-					else if (cellContent==='a') cell.innerHTML='&#8592;';
-					else if (cellContent==='s') cell.innerHTML='&#8595;';
-					else if (cellContent==='d') cell.innerHTML='&#8594;';
+					if (cellContent==='w') cell.innerHTML='&#x2191;';
+					else if (cellContent==='a') cell.innerHTML='&#x2190;';
+					else if (cellContent==='s') cell.innerHTML='&#x2193;';
+					else if (cellContent==='d') cell.innerHTML='&#x2192;';
+					else if (cellContent==='q') cell.innerHTML='&#x2196;';
+					else if (cellContent==='e') cell.innerHTML='&#x2197;';
+					else if (cellContent==='z') cell.innerHTML='&#x2199;';
+					else if (cellContent==='c') cell.innerHTML='&#x2198;';
 					else if (cellContent==='W') cell.innerHTML='&#x21D1;';
 					else if (cellContent==='A') cell.innerHTML='&#x21D0;';
 					else if (cellContent==='S') cell.innerHTML='&#x21D3;';
 					else if (cellContent==='D') cell.innerHTML='&#x21D2;';
+					else if (cellContent==='Q') cell.innerHTML='&#x21D6;';
+					else if (cellContent==='E') cell.innerHTML='&#x21D7;';
+					else if (cellContent==='Z') cell.innerHTML='&#x21D9;';
+					else if (cellContent==='C') cell.innerHTML='&#x21D8;';
+					else if (cellContent==='o') cell.innerHTML='&#x2588;';
+					else if (cellContent==='*') cell.innerHTML='&#x2B22;';
+					else if (cellContent==='B') cell.innerHTML='&#x2297;';
 					else if (cellContent!=='.') cell.textContent=cellContent;
-					cell.addEventListener('click',toggleCellColor);
+					cell.addEventListener('click', toggleCellColor);
 					gridContainer.appendChild(cell);
 				}
 			}
 		}
 
 		function toggleCellColor(event){
-			event.target.classList.toggle('black');
+			if (!event.target.classList.contains('fixed-cell')){
+				event.target.classList.toggle('black');
+			}
 		}
 
 		checkBtn.addEventListener('click',checkResult);
@@ -142,7 +175,8 @@
 			const n=gridData.n;
 			const m=gridData.m;
 			const map=gridData.map;
-
+			const grid=Array.from(gridContainer.children).filter(cell=>!cell.classList.contains('fixed-cell'));
+			let sumB=0,cntB=0;
 			for (let i=0;i<n;i++){
 				for (let j=0;j<m;j++){
 					if (/[0-9]/.test(map[i][j])){
@@ -153,38 +187,97 @@
 							break;
 						}
 					}
-					else if (/[+-]/.test(map[i][j])){
-						if (map[i][j]==='+'){
-							if (bfs(i,j)[2]!==1){
-								correct=false;
-								break;
-							}
+					if (/[+-]/.test(map[i][j])){
+						if ((map[i][j]==='+' && bfs(i,j)[2]!==1) || (map[i][j]==='-' && bfs(i,j)[1]!==1)){
+							correct=false;
+							break;
 						}
-						else if (map[i][j]==='-'){
-							if (bfs(i,j)[1]!==1){
-								correct=false;
-								break;
-							}
-						}
+					}
+					if ((map[i][j]==='o' && !bfs(i,j)[3]) || (map[i][j]==='*' && !bfs(i,j)[4])){
+						correct=false;
+						break;
+					}
+					if (map[i][j]==='B'){
+						cntB++;
+						sumB+=grid[i*m+j].classList.contains('black')? 1:0;
 					}
 				}
 				if (!correct) break;
 			}
-
+			if (gridData.watcher!==undefined){
+				for (let i=0;i<m;i++){
+					let sum=0;
+					for (let j=0;j<n;j++){
+						sum+=grid[j*m+i].classList.contains('black')? 1:0;
+					}
+					if (gridData.watcher[i]!=-1 && sum!=gridData.watcher[i]){
+						correct=false;
+						break;
+					}
+				}
+				for (let i=0;i<n;i++){
+					let sum=0;
+					for (let j=0;j<m;j++){
+						sum+=grid[i*m+j].classList.contains('black')? 1:0;
+					}
+					if (gridData.watcher[m+i]!=-1 && sum!=gridData.watcher[m+i]){
+						correct=false;
+						break;
+					}
+				}
+			}
+			if (!(sumB===cntB || sumB===0)) correct=false;
 			resultDiv.style.display='block';
-			resultDiv.textContent=correct? "答案正确":"答案错误";
+			resultDiv.textContent=correct? `答案正确！`:"答案错误。";
 		}
 
 		function in_range(row,col){
 			return row>=0 && row<gridData.n && col>=0 && col<gridData.m;
 		}
 
+		function check_square(row,col,visited){
+			let minx=row,miny=col,maxx=0,maxy=0;
+			for (let i of visited){
+				let x=parseInt(i.split(',')[0]);
+				let y=parseInt(i.split(',')[1]);
+				minx=Math.min(minx,x);
+				miny=Math.min(miny,y);
+				maxx=Math.max(maxx,x);
+				maxy=Math.max(maxy,y);
+			}
+			return (maxx-minx+1)*(maxy-miny+1)===visited.size;
+		}
+
+		function check_hexagon(row,col,visited){
+			let minx=row,miny=col,maxx=0,maxy=0;
+			for (let i of visited){
+				let x=parseInt(i.split(',')[0]);
+				let y=parseInt(i.split(',')[1]);
+				minx=Math.min(minx,x);
+				miny=Math.min(miny,y);
+				maxx=Math.max(maxx,x);
+				maxy=Math.max(maxy,y);
+			}
+			not_found=new Set();
+			for (let i=minx;i<=maxx;i++){
+				for (let j=miny;j<=maxy;j++){
+					if (!visited.has(`${i},${j}`)){
+						not_found.add(`${i},${j}`);
+					}
+				}
+			}
+			if (not_found.has(`${minx},${miny}`) && not_found.has(`${maxx},${maxy}`) && not_found.has(`${minx},${maxy}`) && not_found.has(`${maxx},${miny}`)){
+				return false;
+			}
+			return check_square(row,col,not_found);
+		}
+
 		function bfs(row,col){
 			const n=gridData.n;
 			const m=gridData.m;
-			const grid=gridContainer.children;
+			const grid=Array.from(gridContainer.children).filter(cell=>!cell.classList.contains('fixed-cell'));
 			const startColor=grid[row*m+col].classList.contains('black');
-			let size=0, plus_sign=0, minus_sign=0;
+			let plus_sign=0, minus_sign=0;
 			const queue=[[row,col,startColor]];
 			const visited=new Set();
 			visited.add(`${row},${col}`);
@@ -198,7 +291,7 @@
 				const cell=grid[r*m+c];
 				const cellContent=gridData.map[r][c];
 
-				if (/[wasdWASD]/.test(cellContent)){
+				if (/[wasdqezcWASDQEZC]/.test(cellContent)){
 					let mult=1;
 					if (cellContent.charCodeAt(0)>=65 && cellContent.charCodeAt(0)<=90){
 						mult=2;
@@ -228,6 +321,30 @@
 							visited.add(`${r},${c+mult}`);
 						}
 					}
+					else if (/[qQ]/.test(cellContent)){
+						if (in_range(r-mult,c-mult) && !visited.has(`${r-mult},${c-mult}`)){
+							queue.push([r-mult,c-mult,grid[(r-mult)*m+(c-mult)].classList.contains('black')]);
+							visited.add(`${r-mult},${c-mult}`);
+						}
+					}
+					else if (/[eE]/.test(cellContent)){
+						if (in_range(r-mult,c+mult) && !visited.has(`${r-mult},${c+mult}`)){
+							queue.push([r-mult,c+mult,grid[(r-mult)*m+(c+mult)].classList.contains('black')]);
+							visited.add(`${r-mult},${c+mult}`);
+						}
+					}
+					else if (/[zZ]/.test(cellContent)){
+						if (in_range(r+mult,c-mult) && !visited.has(`${r+mult},${c-mult}`)){
+							queue.push([r+mult,c-mult,grid[(r+mult)*m+(c-mult)].classList.contains('black')]);
+							visited.add(`${r+mult},${c-mult}`);
+						}
+					}
+					else if (/[cC]/.test(cellContent)){
+						if (in_range(r+mult,c+mult) && !visited.has(`${r+mult},${c+mult}`)){
+							queue.push([r+mult,c+mult,grid[(r+mult)*m+(c+mult)].classList.contains('black')]);
+							visited.add(`${r+mult},${c+mult}`);
+						}
+					}
 				}
 				else{
 					if (in_range(r+1,c) && !visited.has(`${r+1},${c}`) && grid[(r+1)*m+c].classList.contains('black')==color){
@@ -248,8 +365,8 @@
 					}
 				}
 			}
-			// console.log([row,col,size,visited.size]);
-			return [visited.size,plus_sign,minus_sign];
+			// console.log([row,col,visited.size,plus_sign,minus_sign]);
+			return [visited.size,plus_sign,minus_sign,check_square(row,col,visited),check_hexagon(row,col,visited)];
 		}
 		
 		clearBtn.addEventListener('click', () => {

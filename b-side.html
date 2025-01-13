@@ -306,7 +306,7 @@
 		}
 
 		function check_square(row,col,visited){
-			let minx=row,miny=col,maxx=0,maxy=0;
+			let minx=gridData.n,miny=gridData.m,maxx=0,maxy=0;
 			for (let i of visited){
 				let x=parseInt(i.split(',')[0]);
 				let y=parseInt(i.split(',')[1]);
@@ -319,7 +319,7 @@
 		}
 
 		function check_hexagon(row,col,visited){
-			let minx=row,miny=col,maxx=0,maxy=0;
+			let minx=gridData.n,miny=gridData.m,maxx=0,maxy=0;
 			for (let i of visited){
 				let x=parseInt(i.split(',')[0]);
 				let y=parseInt(i.split(',')[1]);
